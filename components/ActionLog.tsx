@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { LogEntry, Language } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -22,7 +23,10 @@ const ActionLog: React.FC<ActionLogProps> = ({ logs, lang }) => {
         {logs.length === 0 && <p className="text-gray-400 italic text-sm">{t.noActions}</p>}
         {logs.map((log) => (
           <div key={log.id} className="text-sm border-l-2 border-stone-300 pl-2 py-1">
-            <span className="text-gray-400 text-xs block">{log.timestamp.toLocaleTimeString()}</span>
+            <span className="text-gray-400 text-xs flex justify-between">
+              <span>{log.timestamp.toLocaleTimeString()}</span>
+              <span className="font-mono bg-stone-100 px-1 rounded text-[10px] text-stone-500">Ep.{log.epoch}</span>
+            </span>
             <span className="text-gray-700">{log.message}</span>
           </div>
         ))}

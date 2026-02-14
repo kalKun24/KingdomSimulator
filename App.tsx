@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import Board from './components/Board';
 import { ToolType, TilePanel, CastlePanel, EraserTool } from './components/Controls';
 import ScoreBoard from './components/ScoreBoard';
 import ActionLog from './components/ActionLog';
-import { BoardState, LogEntry, PlayerColor, GameAnalysis, TileType, Language } from './types';
-import { BOARD_COLS, BOARD_ROWS, PLAYER_CONFIG, TRANSLATIONS } from './constants';
+import { BoardState, LogEntry, PlayerColor, GameAnalysis, Epoch, Language, ScoreResult } from './types';
+import { BOARD_COLS, BOARD_ROWS, TRANSLATIONS } from './constants';
 import { calculateGame } from './utils/scoring';
 
 // Helper to create empty board
@@ -21,29 +21,46 @@ const createEmptyBoard = (): BoardState => {
 };
 
 const App: React.FC = () => {
-  const [board, setBoard] = useState<BoardState>(createEmptyBoard());
-  const [selectedTool, setSelectedTool] = useState<ToolType>({ mode: 'CASTLE', color: PlayerColor.RED, rank: 1 });
-  const [gameAnalysis, setGameAnalysis] = useState<GameAnalysis>({ 
-    scores: { RED: 0, BLUE: 0, GREEN: 0, YELLOW: 0 }, 
-    tileStats: {}, 
-    castleStats: {} 
+  // State for 3 epochs
+  const [boards, setBoards] = useState<Record<Epoch, BoardState>>({
+    1: createEmptyBoard(),
+    2: createEmptyBoard(),
+    3: createEmptyBoard(),
   });
+  const [currentEpoch, setCurrentEpoch] = useState<Epoch>(1);
+
+  const [selectedTool, setSelectedTool] = useState<ToolType>({ mode: 'CASTLE', color: PlayerColor.RED, rank: 1 });
+  
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [lang, setLang] = useState<Language>('ja');
   const [customNames, setCustomNames] = useState<Partial<Record<PlayerColor, string>>>({});
 
-  // Calculate game state whenever board changes
-  useEffect(() => {
-    setGameAnalysis(calculateGame(board));
-  }, [board]);
-
   const t = TRANSLATIONS[lang];
+
+  // Calculate analysis for ALL epochs
+  const analyses = useMemo(() => {
+    return {
+      1: calculateGame(boards[1]),
+      2: calculateGame(boards[2]),
+      3: calculateGame(boards[3]),
+    };
+  }, [boards]);
+
+  // Calculate totals
+  const totalScores: ScoreResult = useMemo(() => {
+    const totals: ScoreResult = { RED: 0, BLUE: 0, GREEN: 0, YELLOW: 0 };
+    Object.values(PlayerColor).forEach(color => {
+      totals[color] = analyses[1].scores[color] + analyses[2].scores[color] + analyses[3].scores[color];
+    });
+    return totals;
+  }, [analyses]);
 
   const addLog = (message: string) => {
     setLogs(prev => [...prev, {
       id: Math.random().toString(36).substr(2, 9),
       timestamp: new Date(),
-      message
+      message,
+      epoch: currentEpoch
     }]);
   };
 
@@ -52,20 +69,21 @@ const App: React.FC = () => {
   };
 
   const handleCellClick = (r: number, c: number) => {
-    const newBoard = [...board.map(row => [...row])]; // Deep copy structure
-    const cell = newBoard[r][c];
+    const currentBoard = boards[currentEpoch];
+    const newRow = [...currentBoard.map(row => [...row])];
+    const cell = newRow[r][c];
 
     if (selectedTool.mode === 'ERASER') {
       if (cell.tile || cell.castle) {
-        newBoard[r][c] = { ...cell, tile: null, castle: null };
-        setBoard(newBoard);
+        newRow[r][c] = { ...cell, tile: null, castle: null };
+        setBoards(prev => ({ ...prev, [currentEpoch]: newRow }));
         addLog(`${t.cleared} (${r + 1}, ${c + 1})`);
       }
       return;
     }
 
     if (selectedTool.mode === 'TILE') {
-      newBoard[r][c] = {
+      newRow[r][c] = {
         ...cell,
         castle: null, // Overwrite
         tile: {
@@ -83,7 +101,7 @@ const App: React.FC = () => {
     } 
     
     if (selectedTool.mode === 'CASTLE') {
-      newBoard[r][c] = {
+      newRow[r][c] = {
         ...cell,
         tile: null, // Overwrite
         castle: {
@@ -96,13 +114,18 @@ const App: React.FC = () => {
       addLog(`${t.placed} ${colorName} ${t.castle} (${t.rank} ${selectedTool.rank}) ${t.at} (${r + 1}, ${c + 1})`);
     }
 
-    setBoard(newBoard);
+    setBoards(prev => ({ ...prev, [currentEpoch]: newRow }));
   };
 
   const handleReset = () => {
     if (window.confirm(t.confirmReset)) {
-      setBoard(createEmptyBoard());
+      setBoards({
+        1: createEmptyBoard(),
+        2: createEmptyBoard(),
+        3: createEmptyBoard(),
+      });
       setLogs([]); 
+      setCurrentEpoch(1);
       addLog(t.boardResetLog);
     }
   };
@@ -149,12 +172,13 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-4">
-        <div className="grid gap-6 grid-cols-1 lg:grid-cols-[300px_1fr_300px] auto-rows-max">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-[350px_1fr_300px] auto-rows-max">
           
           {/* Top Left: Scores */}
           <div className="flex flex-col gap-4">
             <ScoreBoard 
-              scores={gameAnalysis.scores} 
+              epochScores={{ 1: analyses[1].scores, 2: analyses[2].scores, 3: analyses[3].scores }}
+              totalScores={totalScores}
               lang={lang} 
               customNames={customNames}
               onNameChange={(color, name) => setCustomNames(prev => ({ ...prev, [color]: name }))}
@@ -169,14 +193,47 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Center: Board (Spans 2 rows visually in large screens if needed, but flex-col works) */}
+          {/* Center: Board */}
           <div className="flex flex-col items-center gap-4 lg:row-span-2">
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md inline-block">
-               <Board board={board} analysis={gameAnalysis} onCellClick={handleCellClick} />
+            
+            {/* Board Container */}
+            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-md inline-block relative">
+               <div className="absolute top-0 left-0 bg-stone-800 text-white text-xs px-2 py-1 rounded-br-lg rounded-tl-lg font-mono">
+                 {t.epoch} {currentEpoch} / 3
+               </div>
+               <Board 
+                 board={boards[currentEpoch]} 
+                 analysis={analyses[currentEpoch]} 
+                 onCellClick={handleCellClick} 
+               />
             </div>
-            <div className="text-center text-sm font-medium text-stone-600 bg-white px-4 py-2 rounded-full shadow-sm border border-stone-200">
+
+            {/* Epoch Selector */}
+            <div className="flex bg-white p-1 rounded-lg shadow-sm border border-gray-200">
+               {[1, 2, 3].map((e) => {
+                 const epoch = e as Epoch;
+                 return (
+                   <button
+                    key={epoch}
+                    onClick={() => setCurrentEpoch(epoch)}
+                    className={`
+                      px-6 py-2 rounded-md text-sm font-bold transition-all
+                      ${currentEpoch === epoch 
+                        ? 'bg-stone-800 text-white shadow-md' 
+                        : 'text-stone-500 hover:bg-stone-100'
+                      }
+                    `}
+                   >
+                     {t.epoch} {epoch}
+                   </button>
+                 );
+               })}
+            </div>
+
+            <div className="text-center text-sm font-medium text-stone-600 bg-white px-4 py-2 rounded-full shadow-sm border border-stone-200 mt-2">
                {getSelectionText()}
             </div>
+            
             <div className="w-full max-w-xs">
               <EraserTool selectedTool={selectedTool} onSelectTool={setSelectedTool} lang={lang} />
             </div>
@@ -191,8 +248,6 @@ const App: React.FC = () => {
           <div className="flex flex-col h-[300px] lg:h-auto">
              <ActionLog logs={logs} lang={lang} />
           </div>
-
-          {/* Center Space: (Occupied by Board row-span) - handled by grid flow, or we skip */}
 
           {/* Bottom Right: Castles */}
           <div className="flex flex-col gap-4">

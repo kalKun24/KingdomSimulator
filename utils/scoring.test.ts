@@ -262,4 +262,59 @@ describe('Kingdoms Scoring Logic', () => {
     expect(scores[PlayerColor.RED]).toBe(10);
   });
 
+  // --- New Tests ---
+
+  it('14. Dragon vs Hazard: Dragon does NOT negate Hazards', () => {
+    const board = createEmptyBoard();
+    placeCastle(board, 0, 0, PlayerColor.RED, 1);
+    placeTile(board, 0, 1, TileType.HAZARD, -5);
+    placeTile(board, 0, 2, TileType.DRAGON); // Same row
+    
+    const scores = calculateScores(board);
+    // Dragon only affects Resources (positive). Hazard remains -5.
+    expect(scores[PlayerColor.RED]).toBe(-5);
+  });
+
+  it('15. Gold Mine vs Hazard: Gold Mine doubles Hazards', () => {
+    const board = createEmptyBoard();
+    placeCastle(board, 0, 0, PlayerColor.RED, 1);
+    placeTile(board, 0, 1, TileType.HAZARD, -5);
+    placeTile(board, 0, 2, TileType.GOLD_MINE);
+    
+    const scores = calculateScores(board);
+    // -5 * 2 = -10
+    expect(scores[PlayerColor.RED]).toBe(-10);
+  });
+
+  it('16. Multiple Wizards: Bonuses stack', () => {
+    const board = createEmptyBoard();
+    //   W
+    // W C W
+    //   W
+    placeCastle(board, 1, 1, PlayerColor.BLUE, 1);
+    placeTile(board, 0, 1, TileType.WIZARD); // Top
+    placeTile(board, 2, 1, TileType.WIZARD); // Bottom
+    placeTile(board, 1, 0, TileType.WIZARD); // Left
+    placeTile(board, 1, 2, TileType.WIZARD); // Right
+    
+    // Place a resource to score
+    placeTile(board, 1, 3, TileType.RESOURCE, 10);
+
+    const scores = calculateScores(board);
+    // Rank 1 + 4 Wizards = Effective Rank 5.
+    // Score = 5 * 10 = 50.
+    expect(scores[PlayerColor.BLUE]).toBe(50);
+  });
+
+  it('17. Dragon in Row AND Col: Resource is definitely 0', () => {
+    const board = createEmptyBoard();
+    placeCastle(board, 0, 0, PlayerColor.RED, 1);
+    placeTile(board, 0, 1, TileType.RESOURCE, 100);
+    placeTile(board, 0, 2, TileType.DRAGON); // Row
+    placeTile(board, 1, 1, TileType.DRAGON); // Col
+
+    const scores = calculateScores(board);
+    expect(scores[PlayerColor.RED]).toBe(0);
+  });
+
 });

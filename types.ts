@@ -16,6 +16,7 @@ export enum TileType {
 }
 
 export type Language = 'en' | 'ja';
+export type Epoch = 1 | 2 | 3;
 
 export interface Tile {
   type: TileType;
@@ -65,4 +66,5 @@ export interface LogEntry {
   id: string;
   timestamp: Date;
   message: string;
+  epoch: Epoch;
 }
