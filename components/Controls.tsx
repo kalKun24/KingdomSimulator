@@ -1,6 +1,6 @@
 import React from 'react';
-import { PlayerColor, TileType } from '../types';
-import { PLAYER_CONFIG, TILES_CONFIG, getTileIcon } from '../constants';
+import { PlayerColor, TileType, Language } from '../types';
+import { PLAYER_CONFIG, TILES_CONFIG, getTileIcon, TRANSLATIONS } from '../constants';
 
 export type ToolType = 
   | { mode: 'TILE'; type: TileType; value: number }
@@ -10,10 +10,12 @@ export type ToolType =
 interface BaseControlProps {
   selectedTool: ToolType;
   onSelectTool: (tool: ToolType) => void;
+  lang: Language;
 }
 
-export const EraserTool: React.FC<BaseControlProps> = ({ selectedTool, onSelectTool }) => {
+export const EraserTool: React.FC<BaseControlProps> = ({ selectedTool, onSelectTool, lang }) => {
   const isSelected = selectedTool.mode === 'ERASER';
+  const t = TRANSLATIONS[lang];
   return (
     <button
       className={`w-full py-3 rounded-lg font-bold border-2 transition-all shadow-sm flex items-center justify-center gap-2
@@ -24,15 +26,16 @@ export const EraserTool: React.FC<BaseControlProps> = ({ selectedTool, onSelectT
       onClick={() => onSelectTool({ mode: 'ERASER' })}
     >
       <span className="text-xl">⌫</span>
-      <span>Eraser</span>
+      <span>{t.eraser}</span>
     </button>
   );
 };
 
-export const TilePanel: React.FC<BaseControlProps> = ({ selectedTool, onSelectTool }) => {
+export const TilePanel: React.FC<BaseControlProps> = ({ selectedTool, onSelectTool, lang }) => {
+  const t = TRANSLATIONS[lang];
   return (
     <div className="bg-white p-3 rounded-lg shadow border border-gray-200">
-      <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b pb-1">Tiles</h3>
+      <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b pb-1">{t.tilesTitle}</h3>
       <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-2">
         {TILES_CONFIG.map((tileConf, idx) => {
           const isActive = selectedTool.mode === 'TILE' && selectedTool.type === tileConf.type && selectedTool.value === tileConf.value;
@@ -45,7 +48,7 @@ export const TilePanel: React.FC<BaseControlProps> = ({ selectedTool, onSelectTo
                 transition-all
                 ${isActive ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200 z-10' : 'border-gray-200 hover:border-gray-400 bg-gray-50'}
               `}
-              title={`${tileConf.type} ${tileConf.value !== 0 ? tileConf.value : ''}`}
+              title={`${t.tileNames[tileConf.type]} ${tileConf.value !== 0 ? tileConf.value : ''}`}
             >
               <span className="text-xl leading-none">{getTileIcon(tileConf.type, tileConf.value)}</span>
               {(tileConf.type === TileType.RESOURCE || tileConf.type === TileType.HAZARD) && (
@@ -59,10 +62,11 @@ export const TilePanel: React.FC<BaseControlProps> = ({ selectedTool, onSelectTo
   );
 };
 
-export const CastlePanel: React.FC<BaseControlProps> = ({ selectedTool, onSelectTool }) => {
+export const CastlePanel: React.FC<BaseControlProps> = ({ selectedTool, onSelectTool, lang }) => {
+  const t = TRANSLATIONS[lang];
   return (
     <div className="bg-white p-3 rounded-lg shadow border border-gray-200">
-      <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b pb-1">Castles</h3>
+      <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 border-b pb-1">{t.castlesTitle}</h3>
       <div className="space-y-3">
         {Object.values(PlayerColor).map((color) => (
           <div key={color} className="flex gap-1 justify-between">

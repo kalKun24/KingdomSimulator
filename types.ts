@@ -15,6 +15,8 @@ export enum TileType {
   WIZARD = 'WIZARD'
 }
 
+export type Language = 'en' | 'ja';
+
 export interface Tile {
   type: TileType;
   value: number; // Face value

@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import Board from './components/Board';
 import { ToolType, TilePanel, CastlePanel, EraserTool } from './components/Controls';
 import ScoreBoard from './components/ScoreBoard';
 import ActionLog from './components/ActionLog';
-import { BoardState, LogEntry, PlayerColor, GameAnalysis, TileType } from './types';
-import { BOARD_COLS, BOARD_ROWS, PLAYER_CONFIG } from './constants';
+import { BoardState, LogEntry, PlayerColor, GameAnalysis, TileType, Language } from './types';
+import { BOARD_COLS, BOARD_ROWS, PLAYER_CONFIG, TRANSLATIONS } from './constants';
 import { calculateGame } from './utils/scoring';
 
 // Helper to create empty board
@@ -28,11 +29,15 @@ const App: React.FC = () => {
     castleStats: {} 
   });
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [lang, setLang] = useState<Language>('ja');
+  const [customNames, setCustomNames] = useState<Partial<Record<PlayerColor, string>>>({});
 
   // Calculate game state whenever board changes
   useEffect(() => {
     setGameAnalysis(calculateGame(board));
   }, [board]);
+
+  const t = TRANSLATIONS[lang];
 
   const addLog = (message: string) => {
     setLogs(prev => [...prev, {
@@ -40,6 +45,10 @@ const App: React.FC = () => {
       timestamp: new Date(),
       message
     }]);
+  };
+
+  const toggleLang = () => {
+    setLang(prev => prev === 'en' ? 'ja' : 'en');
   };
 
   const handleCellClick = (r: number, c: number) => {
@@ -50,7 +59,7 @@ const App: React.FC = () => {
       if (cell.tile || cell.castle) {
         newBoard[r][c] = { ...cell, tile: null, castle: null };
         setBoard(newBoard);
-        addLog(`Cleared cell at (${r + 1}, ${c + 1})`);
+        addLog(`${t.cleared} (${r + 1}, ${c + 1})`);
       }
       return;
     }
@@ -65,8 +74,12 @@ const App: React.FC = () => {
           id: Math.random().toString(36)
         }
       };
-      const valStr = selectedTool.type === 'RESOURCE' ? `+${selectedTool.value}` : selectedTool.value.toString();
-      addLog(`Placed ${selectedTool.type === 'RESOURCE' || selectedTool.type === 'HAZARD' ? valStr : selectedTool.type} at (${r + 1}, ${c + 1})`);
+      
+      const tileName = t.tileNames[selectedTool.type];
+      const valStr = selectedTool.type === 'RESOURCE' || selectedTool.type === 'HAZARD' ? 
+        `(${selectedTool.type === 'RESOURCE' ? '+' : ''}${selectedTool.value})` : '';
+        
+      addLog(`${t.placed} ${tileName} ${valStr} ${t.at} (${r + 1}, ${c + 1})`);
     } 
     
     if (selectedTool.mode === 'CASTLE') {
@@ -79,18 +92,35 @@ const App: React.FC = () => {
           id: Math.random().toString(36)
         }
       };
-      addLog(`Placed ${PLAYER_CONFIG[selectedTool.color].name} Castle (Rank ${selectedTool.rank}) at (${r + 1}, ${c + 1})`);
+      const colorName = t.colors[selectedTool.color];
+      addLog(`${t.placed} ${colorName} ${t.castle} (${t.rank} ${selectedTool.rank}) ${t.at} (${r + 1}, ${c + 1})`);
     }
 
     setBoard(newBoard);
   };
 
   const handleReset = () => {
-    if (window.confirm('Are you sure you want to clear the board?')) {
+    if (window.confirm(t.confirmReset)) {
       setBoard(createEmptyBoard());
       setLogs([]); 
-      addLog('Board reset.');
+      addLog(t.boardResetLog);
     }
+  };
+
+  const getSelectionText = () => {
+    if (selectedTool.mode === 'ERASER') return `${t.selected}: ${t.eraser}`;
+    
+    if (selectedTool.mode === 'TILE') {
+      const tileName = t.tileNames[selectedTool.type];
+      const valStr = selectedTool.value !== 0 ? Math.abs(selectedTool.value) : '';
+      return `${t.selected}: ${tileName} ${valStr}`;
+    }
+    
+    if (selectedTool.mode === 'CASTLE') {
+      const colorName = t.colors[selectedTool.color];
+      return `${t.selected}: ${colorName} ${t.castle} (${t.rank} ${selectedTool.rank})`;
+    }
+    return '';
   };
 
   return (
@@ -98,15 +128,21 @@ const App: React.FC = () => {
       <header className="bg-stone-800 text-white p-4 shadow-md sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Kingdoms Calculator</h1>
-            <p className="text-stone-400 text-xs">Scoring Tool & Simulator</p>
+            <h1 className="text-2xl font-bold tracking-tight">{t.appTitle}</h1>
+            <p className="text-stone-400 text-xs">{t.subTitle}</p>
           </div>
-          <div className="space-x-2">
+          <div className="flex space-x-3 items-center">
+            <button
+              onClick={toggleLang}
+              className="text-stone-300 hover:text-white font-mono border border-stone-600 px-2 py-1 rounded text-xs uppercase"
+            >
+              {lang === 'en' ? '日本語' : 'English'}
+            </button>
             <button 
               onClick={handleReset}
               className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition-colors"
             >
-              Reset Board
+              {t.resetBtn}
             </button>
           </div>
         </div>
@@ -117,16 +153,18 @@ const App: React.FC = () => {
           
           {/* Top Left: Scores */}
           <div className="flex flex-col gap-4">
-            <ScoreBoard scores={gameAnalysis.scores} />
+            <ScoreBoard 
+              scores={gameAnalysis.scores} 
+              lang={lang} 
+              customNames={customNames}
+              onNameChange={(color, name) => setCustomNames(prev => ({ ...prev, [color]: name }))}
+            />
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-xs text-blue-800 shadow-sm">
-              <h3 className="font-bold mb-1">Quick Rules</h3>
+              <h3 className="font-bold mb-1">{t.rulesTitle}</h3>
               <ul className="list-disc pl-4 space-y-1">
-                <li><strong>Most strong is Mountain effect.</strong></li>
-                <li><strong>Effect Priority:</strong> Mountain {'>'} Dragon {'>'} Gold Mine = Wizard</li>
-                <li><strong>Mountain (🏔️):</strong> Splits row/col into isolated segments.</li>
-                <li><strong>Dragon (🐲):</strong> Sets all Resources in the same segment to 0.</li>
-                <li><strong>Gold Mine (⛏️):</strong> Doubles value (2x) of Resources/Hazards in the same segment.</li>
-                <li><strong>Wizard (🧙):</strong> +1 Rank to adjacent castles.</li>
+                {t.rules.map((rule: string, i: number) => (
+                  <li key={i}>{rule}</li>
+                ))}
               </ul>
             </div>
           </div>
@@ -137,30 +175,28 @@ const App: React.FC = () => {
                <Board board={board} analysis={gameAnalysis} onCellClick={handleCellClick} />
             </div>
             <div className="text-center text-sm font-medium text-stone-600 bg-white px-4 py-2 rounded-full shadow-sm border border-stone-200">
-               {selectedTool.mode === 'ERASER' && "Selected: Eraser"}
-               {selectedTool.mode === 'TILE' && `Selected: ${selectedTool.type} ${selectedTool.value !== 0 ? Math.abs(selectedTool.value) : ''}`}
-               {selectedTool.mode === 'CASTLE' && `Selected: ${PLAYER_CONFIG[selectedTool.color].name} Castle (Rank ${selectedTool.rank})`}
+               {getSelectionText()}
             </div>
             <div className="w-full max-w-xs">
-              <EraserTool selectedTool={selectedTool} onSelectTool={setSelectedTool} />
+              <EraserTool selectedTool={selectedTool} onSelectTool={setSelectedTool} lang={lang} />
             </div>
           </div>
 
           {/* Top Right: Tiles */}
           <div className="flex flex-col gap-4">
-            <TilePanel selectedTool={selectedTool} onSelectTool={setSelectedTool} />
+            <TilePanel selectedTool={selectedTool} onSelectTool={setSelectedTool} lang={lang} />
           </div>
 
           {/* Bottom Left: Logs */}
           <div className="flex flex-col h-[300px] lg:h-auto">
-             <ActionLog logs={logs} />
+             <ActionLog logs={logs} lang={lang} />
           </div>
 
           {/* Center Space: (Occupied by Board row-span) - handled by grid flow, or we skip */}
 
           {/* Bottom Right: Castles */}
           <div className="flex flex-col gap-4">
-            <CastlePanel selectedTool={selectedTool} onSelectTool={setSelectedTool} />
+            <CastlePanel selectedTool={selectedTool} onSelectTool={setSelectedTool} lang={lang} />
           </div>
 
         </div>
