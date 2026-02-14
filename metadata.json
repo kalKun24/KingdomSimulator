@@ -1,0 +1,5 @@
+{
+  "name": "Kingdoms Calculator",
+  "description": "A scoring calculator and simulator for the board game Kingdoms. Allows free placement of tiles and castles to calculate scores based on complex rules like Dragons, Wizards, and Gold Mines.",
+  "requestFramePermissions": []
+}
